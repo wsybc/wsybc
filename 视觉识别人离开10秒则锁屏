@@ -1,0 +1,69 @@
+import subprocess
+import sys
+import time
+import cv2
+import pyautogui
+
+
+def install_packages(packages):
+    for package in packages:
+        try:
+            __import__(package)
+        except ImportError:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+
+required_packages = ['opencv-python', 'pyautogui']
+install_packages(required_packages)
+
+
+def detect_face():
+    cap = cv2.VideoCapture(0)
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+    no_face_start_time = None
+    lock_screen_delay = 10
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to capture image")
+                break
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+            if len(faces) == 0:
+                if no_face_start_time is None:
+                    no_face_start_time = time.time()
+                elif time.time() - no_face_start_time >= lock_screen_delay:
+                    print("No face detected. Locking screen...")
+                    try:
+                        # Test pyautogui
+                        pyautogui.hotkey('ctrl', 'alt', 'delete')
+                        time.sleep(1)
+                        pyautogui.press('esc')
+
+                        # Alternative method to lock screen on Windows
+                        subprocess.run('rundll32.exe user32.dll,LockWorkStation')
+                    except Exception as e:
+                        print(f"Failed to lock screen: {e}")
+                    no_face_start_time = None  # Reset the timer after locking the screen
+            else:
+                print("Face detected.")
+                no_face_start_time = None  # Reset the timer if a face is detected
+
+            time.sleep(1)  # Reduce delay to improve responsiveness
+
+    except KeyboardInterrupt:
+        print("Program interrupted by user.")
+
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        print("Resources released.")
+
+
+if __name__ == "__main__":
+    detect_face()
